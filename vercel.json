@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "index.py",
+      "src": "run.py",
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "10mb"
@@ -12,7 +12,38 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "index.py"
+      "dest": "run.py"
     }
-  ]
+  ],
+  "env": {
+    "FLASK_APP": "run.py",
+    "VERCEL": "1",
+    "FLASK_ENV": "production",
+    "FLASK_DEBUG": "False",
+    "FLASK_SECRET_KEY": "ZPXRzAVyv7TlNqcILxi6lclqRU70HdGvwEoKSoTEjK8nEBjdWSwlZO9kigODUcFF0X5R46EghR8eDs4E",
+    "DATABASE_URL": "postgres://postgres.hustgwbmwvmpptezmklt:9R5h7CthPEzyS7M5@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
+    "SECRET_KEY": "ZPXRzAVyv7TlNqcILxi6lclqRU70HdGvwEoKSoTEjK8nEBjdWSwlZO9kigODUcFF0X5R46EghR8eDs4E",
+    "PORT": "2000",
+    "SQLALCHEMY_POOL_SIZE": "5",
+    "SQLALCHEMY_MAX_OVERFLOW": "10",
+    "SQLALCHEMY_POOL_RECYCLE": "300",
+    "OPENAI_API_KEY": "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",
+    "GOOGLE_APPLICATION_CREDENTIALS": "./secrets/tst-446909-95ff16549013.json",
+    "REDIS_URL": "redis://default:q2mV6aQErDWS6vvLgJA1lSniSDU0RD9w@redis-14116.c276.us-east-1-2.ec2.redns.redis-cloud.com:14116",
+    "REDIS_CACHE_TTL": "3600",
+    "POSTGRES_URL": "postgres://postgres.hustgwbmwvmpptezmklt:9R5h7CthPEzyS7M5@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
+    "POSTGRES_PRISMA_URL": "postgres://postgres.hustgwbmwvmpptezmklt:9R5h7CthPEzyS7M5@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
+    "SUPABASE_URL": "https://hustgwbmwvmpptezmklt.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://hustgwbmwvmpptezmklt.supabase.co",
+    "POSTGRES_URL_NON_POOLING": "postgres://postgres.hustgwbmwvmpptezmklt:9R5h7CthPEzyS7M5@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require",
+    "SUPABASE_JWT_SECRET": "AL+N9aRNXPnquIW90JpuvZKu1l4fNXKtiZnxTkytsp7Fw0Ki/CPRMqy1QZrKlX5yIzmQoLRRkQ10Xq611f2MPg==",
+    "POSTGRES_USER": "postgres",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1c3Rnd2Jtd3ZtcHB0ZXpta2x0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1NjA3OTksImV4cCI6MjA1OTEzNjc5OX0.Gw43mmFsabSpbOf6vOnIhi9RdGHeuVmP8b-VGbQ1HNU",
+    "POSTGRES_PASSWORD": "9R5h7CthPEzyS7M5",
+    "POSTGRES_DATABASE": "postgres",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1c3Rnd2Jtd3ZtcHB0ZXpta2x0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzU2MDc5OSwiZXhwIjoyMDU5MTM2Nzk5fQ.OmSjQHdM0U4csoDHss83XjvmSCqhpUjc54Rsdsx-SbM",
+    "POSTGRES_HOST": "db.hustgwbmwvmpptezmklt.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1c3Rnd2Jtd3ZtcHB0ZXpta2x0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1NjA3OTksImV4cCI6MjA1OTEzNjc5OX0.Gw43mmFsabSpbOf6vOnIhi9RdGHeuVmP8b-VGbQ1HNU"
+  },
+  "regions": ["iad1"]
 }

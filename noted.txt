@@ -1,4 +1,6 @@
 export NODE_OPTIONS="--max-old-space-size=4096"
+
+python -m venv venv_py39
 source venv_py39/bin/activate
 vercel dev
 vercel --prod
