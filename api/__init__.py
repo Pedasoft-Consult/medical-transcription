@@ -1,77 +1,43 @@
 """
-Complete update for app/__init__.py with proper error handlers function
+Complete update for app/__init__.py with security enhancements
 """
 import os
 import logging
 
 from flask import Flask, jsonify
-from flask_cors import CORS
+from dotenv import load_dotenv
 
 from .swagger import register_swagger
 from .config import config
 from .logging_setup import setup_logging
+from .utils.error_handling import register_error_handlers
+from .services.security_service import setup_security_headers, setup_cors
+from .services.data_retention import register_data_retention_commands
 
 # Setup logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def register_error_handlers(app):
-    """Register error handlers for better error responses"""
+# Load environment variables based on environment
+def load_environment_config():
+    """Load environment-specific configuration"""
+    env = os.environ.get("FLASK_ENV", "development")
+    env_file = f".env.{env}"
 
-    @app.errorhandler(400)
-    def bad_request(error):
-        return jsonify({
-            'message': 'Bad request',
-            'error': str(error)
-        }), 400
-
-    @app.errorhandler(401)
-    def unauthorized(error):
-        return jsonify({
-            'message': 'Unauthorized',
-            'error': str(error)
-        }), 401
-
-    @app.errorhandler(403)
-    def forbidden(error):
-        return jsonify({
-            'message': 'Forbidden',
-            'error': str(error)
-        }), 403
-
-    @app.errorhandler(404)
-    def not_found(error):
-        return jsonify({
-            'message': 'Resource not found',
-            'error': str(error)
-        }), 404
-
-    @app.errorhandler(405)
-    def method_not_allowed(error):
-        return jsonify({
-            'message': 'Method not allowed',
-            'error': str(error)
-        }), 405
-
-    @app.errorhandler(429)
-    def too_many_requests(error):
-        return jsonify({
-            'message': 'Too many requests',
-            'error': str(error)
-        }), 429
-
-    @app.errorhandler(500)
-    def server_error(error):
-        app.logger.error(f"Internal server error: {error}", exc_info=True)
-        return jsonify({
-            'message': 'Internal server error',
-            'error': str(error) if app.config.get('DEBUG', False) else 'See logs for details'
-        }), 500
+    if os.path.exists(env_file):
+        logger.info(f"Loading environment from {env_file}")
+        load_dotenv(env_file)
+    else:
+        logger.info("Loading environment from default .env file")
+        load_dotenv()
 
 
 def create_app():
-    """Create and configure the Flask application"""
+    """Create and configure the Flask application with enhanced security"""
+    # Load environment variables
+    load_environment_config()
+
     # Create the app
     app = Flask(__name__,
                 static_folder=config.get_static_folder(),
@@ -91,107 +57,95 @@ def create_app():
     # Setup logging - Should come early in initialization
     setup_logging(app)
 
-    # Initialize extensions
+    # Initialize database
     from .db import db
     db.init_app(app)
 
-    # Enable CORS for all API routes with proper configuration
-    CORS(app,
-         resources={r"/api/*": {"origins": ["http://localhost:3000"], "supports_credentials": True}},
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-         allow_headers=["Content-Type", "Authorization", "Accept"])
+    # Setup CORS with proper configuration
+    setup_cors(app)
 
-    # Import models directly to register them with SQLAlchemy only once
+    # Setup security headers
+    setup_security_headers(app)
+
+    # Register error handlers
+    register_error_handlers(app)
+
+    # Import models to register them with SQLAlchemy
     with app.app_context():
         from .models.user import User
         from .models.transcript import Transcription
         from .models.translation import Translation
+        from .models.audit_log import AuditLog
 
         # Create database tables
         db.create_all()
-        app.logger.info("Database tables created")
+        app.logger.info("Database tables created or verified")
 
-    # Initialize rate limiter with the best available storage
-    from flask_limiter import Limiter
-    from flask_limiter.util import get_remote_address
-
-    # Try to use Redis storage if available
-    redis_storage = None
+    # Initialize rate limiter
     try:
-        import redis
+        from flask_limiter import Limiter
+        from flask_limiter.util import get_remote_address
+        from .utils.redis_compat import get_redis_storage
 
-        # Import from the redis_compat module we just created
-        try:
-            from api.utils.redis_compat import get_redis_storage
-            RedisStorage = get_redis_storage()
-        except ImportError:
-            # Fallback to relative import if absolute import fails
-            try:
-                from .utils.redis_compat import get_redis_storage
-                RedisStorage = get_redis_storage()
-            except ImportError:
-                app.logger.error("Could not import redis_compat module")
-                raise ImportError("redis_compat module not found")
-
-        if not RedisStorage:
-            raise ImportError("RedisStorage class could not be loaded")
-
-        # Get Redis URL from config or environment
-        redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-        redis_client = redis.from_url(redis_url)
-
-        # Test connection
-        redis_client.ping()
-
-        # Create storage
-        redis_storage = RedisStorage(redis_client)
-        app.logger.info("Using Redis storage for rate limiting")
-    except (ImportError, Exception) as e:
-        app.logger.warning(f"Could not initialize Redis storage for rate limiting: {str(e)}")
-        app.logger.warning("Falling back to in-memory storage (not recommended for production)")
+        # Try to use Redis storage if available
         redis_storage = None
+        try:
+            import redis
 
-    # Initialize limiter with the best available storage
-    if redis_storage:
-        limiter = Limiter(
-            get_remote_address,
-            storage=redis_storage,
-            default_limits=["200 per day", "50 per hour"]
-        )
-    else:
-        # Use default in-memory storage
-        limiter = Limiter(
-            get_remote_address,
-            default_limits=["200 per day", "50 per hour"]
-        )
-        app.logger.warning("Using in-memory storage for rate limiting. NOT RECOMMENDED FOR PRODUCTION.")
+            RedisStorage = get_redis_storage()
+            if not RedisStorage:
+                raise ImportError("RedisStorage class could not be loaded")
 
-    limiter.init_app(app)
+            # Get Redis URL from config or environment
+            redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+            redis_client = redis.from_url(redis_url)
 
-    # Make limiter available for routes
-    app.limiter = limiter
+            # Test connection
+            redis_client.ping()
 
-    # Setup enhanced security
-    from .services.security_service import setup_security_headers
-    setup_security_headers(app)
+            # Create storage
+            redis_storage = RedisStorage(redis_client)
+            app.logger.info("Using Redis storage for rate limiting")
+        except (ImportError, Exception) as e:
+            app.logger.warning(f"Could not initialize Redis storage for rate limiting: {str(e)}")
+            app.logger.warning("Falling back to in-memory storage (not recommended for production)")
+            redis_storage = None
 
-    # Register error handlers - using the function defined above
-    register_error_handlers(app)
+        # Initialize limiter with the best available storage
+        if redis_storage:
+            limiter = Limiter(
+                get_remote_address,
+                app=app,
+                storage=redis_storage,
+                default_limits=["200 per day", "50 per hour"]
+            )
+        else:
+            # Use default in-memory storage
+            limiter = Limiter(
+                get_remote_address,
+                app=app,
+                default_limits=["200 per day", "50 per hour"]
+            )
+            app.logger.warning("Using in-memory storage for rate limiting. NOT RECOMMENDED FOR PRODUCTION.")
 
-    # Register API blueprints - Import directly to avoid circular imports
+        # Make limiter available for routes
+        app.limiter = limiter
+    except ImportError:
+        app.logger.warning("Flask-Limiter not installed, rate limiting disabled")
+
+    # Register API blueprints
     from .routes.auth import auth_bp
     from .routes.ai_transcription import ai_transcription_bp
     from .routes.ai_translation import ai_translation_bp
 
-    # Register AI-enhanced routes if services are available
+    # Register all routes
     try:
         app.register_blueprint(auth_bp)
         app.register_blueprint(ai_transcription_bp)
         app.register_blueprint(ai_translation_bp)
-        app.logger.info("AI-enhanced transcription and translation services registered")
+        app.logger.info("API routes registered")
     except ImportError as e:
-        app.logger.warning(f"AI services not available: {str(e)}")
-        app.logger.warning("The application will use standard transcription and translation services")
+        app.logger.warning(f"Some API routes could not be registered: {str(e)}")
 
     # Register audio routes
     from .services.audio_playback import register_audio_routes
@@ -204,6 +158,9 @@ def create_app():
         app.logger.info("Monitoring routes registered")
     except ImportError:
         app.logger.warning("Monitoring services not available")
+
+    # Register data retention commands
+    register_data_retention_commands(app)
 
     # Register Swagger documentation
     register_swagger(app)

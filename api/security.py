@@ -1,21 +1,22 @@
 """
-6. Update the security.py file to avoid circular imports
-"""
-
-# api/security.py
-"""
-Security utilities for JWT authentication
+Enhanced security utilities for JWT authentication
 """
 import jwt
+import logging
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import request, jsonify, g
+from flask import request, jsonify, g, current_app
 from .config import config
+from .utils.error_handling import AuthenticationError
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 # JWT Configuration
 SECRET_KEY = config.get_jwt_secret_key()
 ALGORITHM = config.get_jwt_algorithm()
 ACCESS_TOKEN_EXPIRE_MINUTES = config.get_jwt_expire_minutes()
+REFRESH_TOKEN_EXPIRE_DAYS = config.get_jwt_refresh_expire_days()
 
 
 def get_token_from_header():
@@ -34,20 +35,29 @@ def token_required(f):
         token = get_token_from_header()
 
         if not token:
-            return jsonify({'message': 'Token is missing'}), 401
+            raise AuthenticationError("Missing authentication token")
 
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             # Import User model here to avoid circular imports
-            from .models import User
+            from .models.user import User
             user = User.query.filter_by(username=payload['sub']).first()
             if not user:
-                return jsonify({'message': 'Invalid token'}), 401
+                raise AuthenticationError("Invalid token - user not found")
+
+            # Check if user is active
+            if not user.is_active:
+                raise AuthenticationError("User account is inactive")
+
             g.current_user = user
+
         except jwt.ExpiredSignatureError:
-            return jsonify({'message': 'Token has expired'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'message': 'Invalid token'}), 401
+            logger.warning(f"Expired token: {token[:10]}...")
+            raise AuthenticationError("Token has expired")
+
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid token: {str(e)}")
+            raise AuthenticationError("Invalid token")
 
         return f(*args, **kwargs)
 
@@ -55,7 +65,16 @@ def token_required(f):
 
 
 def create_access_token(data, expires_delta=None):
-    """Create a new JWT token"""
+    """
+    Create a new JWT access token
+
+    Args:
+        data: Data to encode in the token
+        expires_delta: Optional expiration override
+
+    Returns:
+        str: Encoded JWT token
+    """
     to_encode = data.copy()
 
     if expires_delta:
@@ -63,6 +82,33 @@ def create_access_token(data, expires_delta=None):
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    to_encode.update({"exp": expire, "type": "access"})
+
+    try:
+        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        return encoded_jwt
+    except Exception as e:
+        logger.error(f"Error creating access token: {str(e)}")
+        raise
+
+
+def create_refresh_token(data):
+    """
+    Create a new JWT refresh token with longer expiration
+
+    Args:
+        data: Data to encode in the token
+
+    Returns:
+        str: Encoded JWT refresh token
+    """
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+
+    try:
+        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        return encoded_jwt
+    except Exception as e:
+        logger.error(f"Error creating refresh token: {str(e)}")
+        raise

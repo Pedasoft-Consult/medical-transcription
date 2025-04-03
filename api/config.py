@@ -1,6 +1,6 @@
 """
-Configuration loader for the Medical Transcription App
-Loads settings from config.yaml and environment variables
+Enhanced configuration loader for the Medical Transcription App
+with improved security features and secret management
 """
 import os
 import yaml
@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env
 load_dotenv()
+
 
 class Config:
     """
@@ -83,31 +84,90 @@ class Config:
                 self.config['environment'][self.env] = {}
             self.config['environment'][self.env]['port'] = int(port)
 
-    def get_db_url(self) -> str:
-        """Get the database URL for the current environment"""
-        try:
-            raw_url = self.config['database'][self.env]['url']
+        # Engine options
+        if 'database' not in self.config:
+            self.config['database'] = {}
+        if self.env not in self.config['database']:
+            self.config['database'][self.env] = {}
+        if 'engine_options' not in self.config['database'][self.env]:
+            self.config['database'][self.env]['engine_options'] = {}
 
-            # For PostgreSQL URLs, convert for SQLAlchemy
-            if raw_url.startswith("postgres://"):
-                # Remove SSL parameters that might cause issues
-                main_url = raw_url.replace("postgres://", "postgresql://", 1)
-                if "?" in main_url:
-                    url_part, _ = main_url.split("?", 1)
-                    return url_part
-                return main_url
-            return raw_url
-        except (KeyError, TypeError):
-            return "sqlite:///app.db"  # Default fallback
+        # Add engine options from environment
+        engine_options = self.config['database'][self.env]['engine_options']
+        if pool_size := os.environ.get('SQLALCHEMY_POOL_SIZE'):
+            engine_options['pool_size'] = int(pool_size)
+        if max_overflow := os.environ.get('SQLALCHEMY_MAX_OVERFLOW'):
+            engine_options['max_overflow'] = int(max_overflow)
+        if pool_recycle := os.environ.get('SQLALCHEMY_POOL_RECYCLE'):
+            engine_options['pool_recycle'] = int(pool_recycle)
+
+    def get_secret(self, secret_name, default=None):
+        """Get a secret from the environment or secrets manager"""
+        # In production, you might use a secrets manager
+        if self.env == "production":
+            # This is a placeholder for a production secrets manager
+            # Example for AWS Secrets Manager implementation would go here
+            pass
+
+        # Fallback to environment variables
+        return os.environ.get(secret_name, default)
+
+    def get_db_url(self) -> str:
+        """Get the database URL with proper SSL config"""
+        # First try to get from environment directly
+        db_url = self.get_secret("DATABASE_URL")
+
+        # If not in environment, try config file
+        if not db_url:
+            try:
+                db_url = self.config['database'][self.env]['url']
+            except (KeyError, TypeError):
+                return "sqlite:///app.db"  # Default fallback
+
+        # For PostgreSQL URLs, convert for SQLAlchemy
+        if db_url.startswith("postgres://"):
+            # Replace postgres:// with postgresql:// for SQLAlchemy
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+            # In production, always enforce SSL
+            if self.env == "production" and "sslmode" not in db_url:
+                return f"{db_url}?sslmode=require"
+
+        return db_url
+
     def get_db_engine_options(self) -> Dict[str, Any]:
-        """Get database engine options for the current environment"""
+        """Get optimized database engine options"""
+        # Default options
+        base_options = {
+            "pool_recycle": 300,
+            "pool_pre_ping": True,
+        }
+
+        # Production needs higher capacity
+        if self.env == "production":
+            base_options.update({
+                "pool_size": 20,
+                "max_overflow": 30,
+                "pool_timeout": 30,
+            })
+
         try:
-            return self.config['database'][self.env]['engine_options']
+            # Get options from config file
+            config_options = self.config['database'][self.env].get('engine_options', {})
+            base_options.update(config_options)
         except (KeyError, TypeError):
-            return {"pool_recycle": 300, "pool_pre_ping": True}
+            pass
+
+        return base_options
 
     def get_jwt_secret_key(self) -> str:
         """Get the JWT secret key"""
+        # Try to get from environment first
+        secret_key = self.get_secret("SECRET_KEY")
+        if secret_key:
+            return secret_key
+
+        # Fallback to config
         try:
             return self.config['auth']['jwt_secret_key']
         except (KeyError, TypeError):
@@ -115,6 +175,12 @@ class Config:
 
     def get_secret_key(self) -> str:
         """Get the Flask secret key"""
+        # Try to get from environment first
+        secret_key = self.get_secret("FLASK_SECRET_KEY")
+        if secret_key:
+            return secret_key
+
+        # Fallback to config
         try:
             return self.config['security']['secret_key']
         except (KeyError, TypeError):
@@ -122,6 +188,15 @@ class Config:
 
     def get_port(self) -> int:
         """Get the port for the current environment"""
+        # Try to get from environment first
+        port = self.get_secret("PORT")
+        if port:
+            try:
+                return int(port)
+            except (ValueError, TypeError):
+                pass
+
+        # Fallback to config
         try:
             return self.config['environment'][self.env]['port']
         except (KeyError, TypeError):
@@ -129,6 +204,12 @@ class Config:
 
     def get_debug(self) -> bool:
         """Get debug mode for the current environment"""
+        # Try to get from environment first
+        debug = self.get_secret("FLASK_DEBUG")
+        if debug is not None:
+            return debug.lower() in ('true', '1', 't', 'y', 'yes')
+
+        # Fallback to config
         try:
             return self.config['environment'][self.env]['debug']
         except (KeyError, TypeError):
@@ -150,6 +231,12 @@ class Config:
 
     def get_upload_directory(self) -> str:
         """Get the upload directory path"""
+        # Try to get from environment first
+        upload_dir = self.get_secret("UPLOAD_DIRECTORY")
+        if upload_dir:
+            return upload_dir
+
+        # Fallback to config
         try:
             return self.config['storage']['upload_directory']
         except (KeyError, TypeError):
@@ -171,6 +258,15 @@ class Config:
 
     def get_max_upload_size(self) -> int:
         """Get the maximum upload file size in bytes"""
+        # Try to get from environment first
+        max_size = self.get_secret("MAX_UPLOAD_SIZE")
+        if max_size:
+            try:
+                return int(max_size)
+            except (ValueError, TypeError):
+                pass
+
+        # Fallback to config
         try:
             return self.config['storage']['max_upload_size']
         except (KeyError, TypeError):
@@ -239,10 +335,35 @@ class Config:
 
     def get_jwt_expire_minutes(self) -> int:
         """Get the JWT expiration time in minutes"""
+        # Try to get from environment first
+        expire_minutes = self.get_secret("JWT_EXPIRE_MINUTES")
+        if expire_minutes:
+            try:
+                return int(expire_minutes)
+            except (ValueError, TypeError):
+                pass
+
+        # Fallback to config
         try:
             return self.config['auth']['access_token_expire_minutes']
         except (KeyError, TypeError):
             return 30
+
+    def get_jwt_refresh_expire_days(self) -> int:
+        """Get the JWT refresh token expiration time in days"""
+        # Try to get from environment first
+        expire_days = self.get_secret("JWT_REFRESH_EXPIRE_DAYS")
+        if expire_days:
+            try:
+                return int(expire_days)
+            except (ValueError, TypeError):
+                pass
+
+        # Fallback to config
+        try:
+            return self.config['auth']['refresh_token_expire_days']
+        except (KeyError, TypeError):
+            return 7  # Default 7 days
 
 
 # Create a global config instance
