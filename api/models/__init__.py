@@ -1,8 +1,9 @@
 """
 Models package for SQLAlchemy models
+Only import models here if they are not being imported directly elsewhere
 """
 
-# Import models to ensure they're registered with SQLAlchemy
-from .user import User
-from .transcript import Transcription
-from .translation import Translation
+# To avoid duplicate mappers, do NOT re-import these here
+# from .user import User
+# from .transcript import Transcription
+# from .translation import Translation
