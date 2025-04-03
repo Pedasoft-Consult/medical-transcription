@@ -5,7 +5,7 @@
       "src": "run.py",
       "use": "@vercel/python",
       "config": {
-        "maxLambdaSize": "17mb"
+        "maxLambdaSize": "20mb"
       }
     }
   ],
@@ -23,7 +23,8 @@
     "PORT": "2000",
     "SQLALCHEMY_POOL_SIZE": "5",
     "SQLALCHEMY_MAX_OVERFLOW": "10",
-    "SQLALCHEMY_POOL_RECYCLE": "300"
+    "SQLALCHEMY_POOL_RECYCLE": "300",
+    "PYTHON_VERSION": "3.9"
   },
   "regions": ["iad1"]
 }
