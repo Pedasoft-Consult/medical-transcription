@@ -72,7 +72,7 @@ services:
 logging:
   level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
   format: "%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]"
-  file: "logs/app.log"
+  file: "/tmp/app.log"
   max_size: 10240  # 10MB
   backup_count: 10
 

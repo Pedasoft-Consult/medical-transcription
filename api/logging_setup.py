@@ -21,7 +21,7 @@ def setup_logging(app):
     log_config = config.get_logging_config()
     log_level_name = log_config.get('level', 'INFO')
     log_format = log_config.get('format', '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]')
-    log_file = log_config.get('file', 'logs/app.log')
+    log_file = log_config.get('file', '/tmp/app.log')
     log_max_size = log_config.get('max_size', 10240)  # 10 MB
     log_backup_count = log_config.get('backup_count', 10)
 
