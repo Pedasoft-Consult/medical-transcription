@@ -69,16 +69,6 @@ def create_app():
     # Register error handlers
     register_error_handlers(app)
 
-    # Create application context and import models here to avoid circular imports
-    with app.app_context():
-        # Import models using the function to prevent duplicate registration
-        from .models import import_all_models
-        import_all_models()
-
-        # Create database tables
-        db.create_all()
-        app.logger.info("Database tables created or verified")
-
     # Initialize rate limiter
     try:
         from flask_limiter import Limiter
@@ -89,7 +79,6 @@ def create_app():
         redis_storage = None
         try:
             import redis
-
             RedisStorage = get_redis_storage()
             if not RedisStorage:
                 raise ImportError("RedisStorage class could not be loaded")
@@ -130,39 +119,76 @@ def create_app():
         app.limiter = limiter
     except ImportError:
         app.logger.warning("Flask-Limiter not installed, rate limiting disabled")
+    except Exception as e:
+        app.logger.warning(f"Could not initialize rate limiting: {str(e)}")
 
     # Register API blueprints
-    from .routes.auth import auth_bp
-    from .routes.ai_transcription import ai_transcription_bp
-    from .routes.ai_translation import ai_translation_bp
-
-    # Register all routes
     try:
+        from .routes.auth import auth_bp
         app.register_blueprint(auth_bp)
+        app.logger.info("Registered auth routes")
+    except Exception as e:
+        app.logger.error(f"Failed to register auth routes: {str(e)}")
+
+    try:
+        from .routes.ai_transcription import ai_transcription_bp
         app.register_blueprint(ai_transcription_bp)
+        app.logger.info("Registered transcription routes")
+    except Exception as e:
+        app.logger.error(f"Failed to register transcription routes: {str(e)}")
+
+    try:
+        from .routes.ai_translation import ai_translation_bp
         app.register_blueprint(ai_translation_bp)
-        app.logger.info("API routes registered")
-    except ImportError as e:
-        app.logger.warning(f"Some API routes could not be registered: {str(e)}")
+        app.logger.info("Registered translation routes")
+    except Exception as e:
+        app.logger.error(f"Failed to register translation routes: {str(e)}")
 
     # Register audio routes
-    from .services.audio_playback import register_audio_routes
-    register_audio_routes(app)
+    try:
+        from .services.audio_playback import register_audio_routes
+        register_audio_routes(app)
+        app.logger.info("Registered audio routes")
+    except Exception as e:
+        app.logger.error(f"Failed to register audio routes: {str(e)}")
+
+    # Create database tables if they don't exist
+    try:
+        with app.app_context():
+            # First import all models to ensure they are registered
+            from .models.user import User
+            from .models.transcript import Transcription
+            from .models.translation import Translation
+            from .models.audit_log import AuditLog
+
+            # Create tables
+            db.create_all()
+            app.logger.info("Database tables created or verified")
+    except Exception as e:
+        app.logger.error(f"Error creating database tables: {str(e)}")
 
     # Register monitoring routes
     try:
         from .services.monitoring import register_monitoring_routes
         register_monitoring_routes(app)
         app.logger.info("Monitoring routes registered")
-    except ImportError:
-        app.logger.warning("Monitoring services not available")
+    except Exception as e:
+        app.logger.warning(f"Monitoring services not available: {str(e)}")
 
     # Register data retention commands
-    from .services.data_retention import register_data_retention_commands
-    register_data_retention_commands(app)
+    try:
+        from .services.data_retention import register_data_retention_commands
+        register_data_retention_commands(app)
+        app.logger.info("Data retention commands registered")
+    except Exception as e:
+        app.logger.warning(f"Data retention services not available: {str(e)}")
 
     # Register Swagger documentation
-    register_swagger(app)
+    try:
+        register_swagger(app)
+        app.logger.info("Swagger documentation registered")
+    except Exception as e:
+        app.logger.warning(f"Swagger documentation not available: {str(e)}")
 
     # Serve frontend static files
     @app.route('/', defaults={'path': ''})
@@ -173,15 +199,23 @@ def create_app():
         else:
             return app.send_static_file('index.html')
 
-    @app.route("/api/debug/config", methods=["GET"])
+    # Add debug endpoint to help troubleshoot deployment issues
+    @app.route('/api/debug/config', methods=["GET"])
     def debug_config():
+        # Only expose in development mode
         if app.debug:
-            # Return sanitized configuration
-            config_data = {
+            # Return sanitized configuration (removing sensitive info)
+            safe_config = {
                 "FLASK_ENV": os.environ.get("FLASK_ENV"),
-                # ...more info...
+                "FLASK_DEBUG": os.environ.get("FLASK_DEBUG"),
+                "PORT": os.environ.get("PORT"),
+                "DATABASE_URL_PREFIX": os.environ.get("DATABASE_URL", "")[:20] + "..." if os.environ.get(
+                    "DATABASE_URL") else None,
+                "PYTHON_VERSION": os.environ.get("PYTHON_VERSION"),
+                "VERCEL": os.environ.get("VERCEL"),
             }
-            return jsonify(config_data)
+            return jsonify(safe_config)
+        return jsonify({"message": "Debug information only available in debug mode"})
 
     # Basic health check endpoint
     @app.route('/api/health')

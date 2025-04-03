@@ -1,5 +1,5 @@
 """
-Enhanced User model with improved security features
+Enhanced User model with improved security features and singleton pattern
 """
 import re
 import logging
@@ -7,12 +7,18 @@ from datetime import datetime
 import bcrypt
 from flask import current_app
 from ..db import db
+from . import ModelRegistry
 
 logger = logging.getLogger(__name__)
 
+# Use the ModelRegistry to ensure model is only defined once
+@ModelRegistry.register('User')
 class User(db.Model):
     """Model for user accounts with enhanced security"""
     __tablename__ = 'users'
+
+    # Important: Add extend_existing=True to avoid table redefinition errors
+    __table_args__ = {'extend_existing': True}
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(255), unique=True, nullable=False)

@@ -1,35 +1,27 @@
-# api/models/__init__.py
+# Update api/models/__init__.py to use a singleton pattern
+
+"""
+Models package for SQLAlchemy models
+"""
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Track which models have been imported
-_imported_models = set()
+
+# Store model classes in a registry to avoid duplicate registration
+class ModelRegistry:
+    _models = {}
+
+    @classmethod
+    def register(cls, model_name, model_class):
+        """Register a model only if it hasn't been registered before"""
+        if model_name not in cls._models:
+            cls._models[model_name] = model_class
+            logger.info(f"Registered model: {model_name}")
+            return model_class
+        logger.info(f"Using existing registered model: {model_name}")
+        return cls._models[model_name]
 
 
-def import_all_models():
-    """Import all models to register them with SQLAlchemy once"""
-    global _imported_models
-
-    # Only import models that haven't been imported yet
-    if 'user' not in _imported_models:
-        logger.info("Importing user model")
-        from . import user
-        _imported_models.add('user')
-
-    if 'transcript' not in _imported_models:
-        logger.info("Importing transcript model")
-        from . import transcript
-        _imported_models.add('transcript')
-
-    if 'translation' not in _imported_models:
-        logger.info("Importing translation model")
-        from . import translation
-        _imported_models.add('translation')
-
-    if 'audit_log' not in _imported_models:
-        logger.info("Importing audit_log model")
-        from . import audit_log
-        _imported_models.add('audit_log')
-
-    return True
+# Empty _models to avoid exposing any imports
+__all__ = []

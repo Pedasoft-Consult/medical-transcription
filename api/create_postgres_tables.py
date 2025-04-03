@@ -35,22 +35,24 @@ def get_pg_config():
             "port": os.getenv("POSTGRES_PORT", "5432")
         }
 
+
 def connect_postgres():
     """Connect to PostgreSQL database using pg8000"""
     try:
         import pg8000
         config = get_pg_config()
-        
+
         # Convert config format for pg8000
+        # Note: pg8000 doesn't use sslmode parameter, it uses ssl_context instead
         conn = pg8000.connect(
             user=config['user'],
             password=config['password'],
             host=config['host'],
             port=int(config['port']),
             database=config['database'],
-            ssl_context=True  # Enable SSL for secure connections
+            ssl=True  # Use ssl=True instead of ssl_context
         )
-        
+
         print(f"✅ Connected to PostgreSQL database: {config['database']}")
         return conn
     except ImportError:
