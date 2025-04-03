@@ -7,4 +7,5 @@ secrets/
 *.key
 node_modules/
 __pycache__/
-*.pyc
+*.pyc".env" 
+"secrets/" 
