@@ -71,9 +71,9 @@ def create_app():
 
     # Create application context and import models here to avoid circular imports
     with app.app_context():
-        # Import models - this should be done INSIDE the app context
-        # Note: we're importing the models package once, rather than individual models
-        from .models import user, transcript, translation, audit_log
+        # Import models using the function to prevent duplicate registration
+        from .models import import_all_models
+        import_all_models()
 
         # Create database tables
         db.create_all()
@@ -172,6 +172,16 @@ def create_app():
             return app.send_static_file(path)
         else:
             return app.send_static_file('index.html')
+
+    @app.route("/api/debug/config", methods=["GET"])
+    def debug_config():
+        if app.debug:
+            # Return sanitized configuration
+            config_data = {
+                "FLASK_ENV": os.environ.get("FLASK_ENV"),
+                # ...more info...
+            }
+            return jsonify(config_data)
 
     # Basic health check endpoint
     @app.route('/api/health')

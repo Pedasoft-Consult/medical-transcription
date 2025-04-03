@@ -1,7 +1,12 @@
-"""
-Models package for SQLAlchemy models
-"""
-# Don't import models here to avoid circular imports
-# The app will import models directly when needed
+# Import all models in a controlled way with a function
+_models_imported = False
 
-# Empty __all__ to avoid exposing any imports
+def import_all_models():
+    """Import all models to register them with SQLAlchemy"""
+    global _models_imported
+    if not _models_imported:
+        # Import models only once
+        from . import user, transcript, translation, audit_log
+        _models_imported = True
+        return True
+    return False

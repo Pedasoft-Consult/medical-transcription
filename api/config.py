@@ -116,6 +116,15 @@ class Config:
         # First try to get from environment directly
         db_url = self.get_secret("DATABASE_URL")
 
+        # Log the original URL for debugging
+        import logging
+        logging.getLogger(__name__).info(f"Original DATABASE_URL: {db_url}")
+
+        # Clean up the URL if needed
+        if db_url and "&supa=base-pooler.x" in db_url:
+            db_url = db_url.replace("&supa=base-pooler.x", "")
+            logging.getLogger(__name__).info(f"Cleaned DATABASE_URL: {db_url}")
+
         # If not in environment, try config file
         if not db_url:
             try:
