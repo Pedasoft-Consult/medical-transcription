@@ -77,7 +77,22 @@ def create_app():
                 static_folder=config.get_static_folder(),
                 static_url_path=config.get_static_url_path())
 
+    # Initialize extensions
+    from .db import db
+    db.init_app(app)
+
+    # Import models directly to register them with SQLAlchemy only once
+    with app.app_context():
+        from .models.user import User
+        from .models.transcript import Transcription
+        from .models.translation import Translation
+
+        # Create database tables
+        db.create_all()
+        app.logger.info("Database tables created")
+
     # Enable CORS for all API routes with proper configuration
+
     CORS(app,
          resources={r"/api/*": {"origins": ["http://localhost:3000"], "supports_credentials": True}},
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],

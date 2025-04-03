@@ -1,9 +1,4 @@
 """
-4. Update the auth route to use proper model imports
-"""
-
-# api/routes/auth.py
-"""
 Authentication routes for user registration, login, and profile management
 """
 from datetime import timedelta
@@ -11,8 +6,8 @@ from flask import Blueprint, request, jsonify, g, current_app
 from ..utils.rate_limiter import get_rate_limit
 from ..db import db
 
-# Import models from models package
-from ..models import User
+# Import models directly from their modules
+from ..models.user import User
 from ..security import token_required, create_access_token
 
 # Create blueprint for auth routes
