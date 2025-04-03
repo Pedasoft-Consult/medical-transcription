@@ -5,7 +5,7 @@ from datetime import timedelta
 from flask import Blueprint, request, jsonify, g, current_app
 from ..utils.rate_limiter import get_rate_limit
 from ..db import db
-from ..models.user import User
+from ..models import User
 from ..security import token_required, create_access_token
 
 # Create blueprint for auth routes
@@ -51,6 +51,7 @@ def register():
             'message': f'Server error: {str(e)}',
             'details': error_details
         }), 500
+
 
 @auth_bp.route('/token', methods=['POST'])
 def login():
@@ -98,6 +99,7 @@ def get_current_user():
     """Get current authenticated user profile"""
     user = g.current_user
     return jsonify(user.to_dict())
+
 
 @auth_bp.route('/ping', methods=['GET'])
 def ping():
