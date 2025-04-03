@@ -5,4 +5,3 @@ Models package for SQLAlchemy models
 # The app will import models directly when needed
 
 # Empty __all__ to avoid exposing any imports
-__all__ = []

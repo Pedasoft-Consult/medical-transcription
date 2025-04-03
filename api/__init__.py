@@ -1,5 +1,5 @@
 """
-Complete update for app/__init__.py with security enhancements
+Fixed app/__init__.py to resolve SQLAlchemy model registration issues
 """
 import os
 import logging
@@ -12,7 +12,6 @@ from .config import config
 from .logging_setup import setup_logging
 from .utils.error_handling import register_error_handlers
 from .services.security_service import setup_security_headers, setup_cors
-from .services.data_retention import register_data_retention_commands
 
 # Setup logging
 logging.basicConfig(level=logging.DEBUG)
@@ -70,12 +69,11 @@ def create_app():
     # Register error handlers
     register_error_handlers(app)
 
-    # Import models to register them with SQLAlchemy
+    # Create application context and import models here to avoid circular imports
     with app.app_context():
-        from .models.user import User
-        from .models.transcript import Transcription
-        from .models.translation import Translation
-        from .models.audit_log import AuditLog
+        # Import models - this should be done INSIDE the app context
+        # Note: we're importing the models package once, rather than individual models
+        from .models import user, transcript, translation, audit_log
 
         # Create database tables
         db.create_all()
@@ -160,6 +158,7 @@ def create_app():
         app.logger.warning("Monitoring services not available")
 
     # Register data retention commands
+    from .services.data_retention import register_data_retention_commands
     register_data_retention_commands(app)
 
     # Register Swagger documentation
