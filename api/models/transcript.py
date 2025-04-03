@@ -9,6 +9,9 @@ class Transcription(db.Model):
     """Model for storing transcriptions of audio files"""
     __tablename__ = 'transcriptions'
 
+    # Add extend_existing=True to prevent table redefinition errors
+    __table_args__ = {'extend_existing': True}
+
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
     content = db.Column(db.Text, nullable=True)

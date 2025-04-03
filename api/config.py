@@ -120,8 +120,8 @@ class Config:
         import logging
         logging.getLogger(__name__).info(f"Original DATABASE_URL: {db_url}")
 
-        # Clean up the URL if needed
-        if db_url and "&supa=base-pooler.x" in db_url:
+        # Clean up the URL if needed - make sure we don't try to use string operations on a non-string
+        if db_url and isinstance(db_url, str) and "&supa=base-pooler.x" in db_url:
             db_url = db_url.replace("&supa=base-pooler.x", "")
             logging.getLogger(__name__).info(f"Cleaned DATABASE_URL: {db_url}")
 
@@ -133,16 +133,17 @@ class Config:
                 return "sqlite:///app.db"  # Default fallback
 
         # For PostgreSQL URLs, convert for SQLAlchemy with pg8000 driver
-        if db_url.startswith("postgres://") or db_url.startswith("postgresql://"):
-            # Replace postgres:// with postgresql+pg8000:// for SQLAlchemy with pg8000 driver
-            if db_url.startswith("postgres://"):
-                db_url = db_url.replace("postgres://", "postgresql+pg8000://", 1)
-            else:
-                db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
+        if isinstance(db_url, str):
+            if db_url.startswith("postgres://") or db_url.startswith("postgresql://"):
+                # Replace postgres:// with postgresql+pg8000:// for SQLAlchemy with pg8000 driver
+                if db_url.startswith("postgres://"):
+                    db_url = db_url.replace("postgres://", "postgresql+pg8000://", 1)
+                else:
+                    db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
 
-            # In production, always enforce SSL
-            if self.env == "production" and "sslmode" not in db_url:
-                return f"{db_url}?sslmode=require"
+                # In production, always enforce SSL
+                if self.env == "production" and "sslmode" not in db_url:
+                    return f"{db_url}?sslmode=require"
 
         return db_url
 

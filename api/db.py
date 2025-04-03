@@ -9,3 +9,9 @@ class Base(DeclarativeBase):
 
 # Initialize SQLAlchemy with the base model class
 db = SQLAlchemy(model_class=Base)
+
+# Clear any previously registered models to avoid conflicts
+def clear_mappers():
+    """Clear all registered mappers to avoid conflicts"""
+    import sqlalchemy.orm
+    sqlalchemy.orm.clear_mappers()

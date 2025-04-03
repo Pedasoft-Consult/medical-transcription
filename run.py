@@ -3,8 +3,14 @@ Run script for Medical Transcription App
 """
 import os
 
-from flask import jsonify
+# Clear SQLAlchemy mappers before initializing app
+try:
+    from sqlalchemy.orm import clear_mappers
+    clear_mappers()
+except ImportError:
+    pass
 
+from flask import jsonify
 from api import create_app
 from api.config import config
 

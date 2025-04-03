@@ -9,6 +9,9 @@ class Translation(db.Model):
     """Model for storing translations of transcriptions"""
     __tablename__ = 'translations'
 
+    # Add extend_existing=True to prevent table redefinition errors
+    __table_args__ = {'extend_existing': True}
+
     id = db.Column(db.Integer, primary_key=True)
     transcription_id = db.Column(db.Integer, db.ForeignKey('transcriptions.id', ondelete='CASCADE'), nullable=False)
     content = db.Column(db.Text, nullable=True)

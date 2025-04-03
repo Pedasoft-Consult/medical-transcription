@@ -11,8 +11,7 @@ from . import ModelRegistry
 
 logger = logging.getLogger(__name__)
 
-# Use the ModelRegistry to ensure model is only defined once
-@ModelRegistry.register('User')
+# Define the User class first, then register it
 class User(db.Model):
     """Model for user accounts with enhanced security"""
     __tablename__ = 'users'
@@ -135,3 +134,6 @@ class User(db.Model):
         self.last_login_at = datetime.utcnow()
         self.login_attempts = 0
         db.session.commit()
+
+# Register the User model AFTER defining it
+User = ModelRegistry.register(User)
