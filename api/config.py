@@ -1,6 +1,5 @@
 """
-Enhanced configuration loader for the Medical Transcription App
-with improved security features and secret management
+Updated configuration loader to use pg8000 dialect by default for Vercel compatibility
 """
 import os
 import yaml
@@ -124,10 +123,13 @@ class Config:
             except (KeyError, TypeError):
                 return "sqlite:///app.db"  # Default fallback
 
-        # For PostgreSQL URLs, convert for SQLAlchemy
-        if db_url.startswith("postgres://"):
-            # Replace postgres:// with postgresql:// for SQLAlchemy
-            db_url = db_url.replace("postgres://", "postgresql://", 1)
+        # For PostgreSQL URLs, convert for SQLAlchemy with pg8000 driver
+        if db_url.startswith("postgres://") or db_url.startswith("postgresql://"):
+            # Replace postgres:// with postgresql+pg8000:// for SQLAlchemy with pg8000 driver
+            if db_url.startswith("postgres://"):
+                db_url = db_url.replace("postgres://", "postgresql+pg8000://", 1)
+            else:
+                db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
 
             # In production, always enforce SSL
             if self.env == "production" and "sslmode" not in db_url:
