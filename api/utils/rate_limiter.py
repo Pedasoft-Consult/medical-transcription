@@ -1,4 +1,8 @@
 """
+Update the rate_limiter.py file to properly implement get_rate_limit
+"""
+# api/utils/rate_limiter.py
+"""
 Rate limiter utilities for API rate limiting
 """
 import logging
@@ -17,9 +21,10 @@ def get_rate_limit(endpoint_name, default_limit="30/minute"):
     Returns:
         str: The rate limit string (e.g. "100/day")
     """
-    from ..config import config
-
     try:
+        # Importing config here to avoid circular imports
+        from ..config import config
+
         # Check if there is a rate limit configuration
         if 'rate_limits' in config.config:
             # Try to get endpoint-specific limit

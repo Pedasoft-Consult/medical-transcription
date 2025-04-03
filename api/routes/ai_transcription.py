@@ -3,11 +3,11 @@ Enhanced transcription routes with AI integration
 """
 import os
 from flask import Blueprint, request, jsonify, g, current_app
-from ..utils.rate_limiter import get_rate_limit
 from ..db import db
-from ..models.transcript import Transcription
+from ..models import Transcription  # Import from models package
 from ..security import token_required
 from ..services.security_service import log_data_access, generate_secure_filename
+from ..utils.rate_limiter import get_rate_limit
 
 # Create blueprint for AI transcription routes
 ai_transcription_bp = Blueprint('ai_transcription', __name__, url_prefix='/api')

@@ -1,7 +1,12 @@
 """
+3. Update the routes/__init__.py file to fix circular imports
+"""
+
+# api/routes/__init__.py
+"""
 Routes package initialization
 """
-# Import blueprints to make them available for registration
-from .auth import auth_bp
-from .ai_translation import ai_translation_bp
-from .ai_transcription import ai_transcription_bp
+# Don't import blueprints here - this will prevent circular imports
+# The application will import blueprints directly from their modules
+
+# Empty __init__.py file - much safer to avoid importing blueprints here

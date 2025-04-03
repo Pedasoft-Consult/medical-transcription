@@ -1,4 +1,9 @@
 """
+6. Update the security.py file to avoid circular imports
+"""
+
+# api/security.py
+"""
 Security utilities for JWT authentication
 """
 import jwt
@@ -33,7 +38,8 @@ def token_required(f):
 
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            from .models.user import User
+            # Import User model here to avoid circular imports
+            from .models import User
             user = User.query.filter_by(username=payload['sub']).first()
             if not user:
                 return jsonify({'message': 'Invalid token'}), 401
