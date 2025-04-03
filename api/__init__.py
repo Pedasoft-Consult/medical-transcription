@@ -77,9 +77,29 @@ def create_app():
                 static_folder=config.get_static_folder(),
                 static_url_path=config.get_static_url_path())
 
+    # Configure database first - before initializing extensions
+    app.config["SQLALCHEMY_DATABASE_URI"] = config.get_db_url()
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = config.get_db_engine_options()
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    # Debug the database configuration
+    app.logger.info(f"Database URL: {app.config['SQLALCHEMY_DATABASE_URI']}")
+
+    # Replace secret key
+    app.secret_key = config.get_secret_key()
+
+    # Setup logging - Should come early in initialization
+    setup_logging(app)
+
     # Initialize extensions
     from .db import db
     db.init_app(app)
+
+    # Enable CORS for all API routes with proper configuration
+    CORS(app,
+         resources={r"/api/*": {"origins": ["http://localhost:3000"], "supports_credentials": True}},
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         allow_headers=["Content-Type", "Authorization", "Accept"])
 
     # Import models directly to register them with SQLAlchemy only once
     with app.app_context():
@@ -91,33 +111,10 @@ def create_app():
         db.create_all()
         app.logger.info("Database tables created")
 
-    # Enable CORS for all API routes with proper configuration
-
-    CORS(app,
-         resources={r"/api/*": {"origins": ["http://localhost:3000"], "supports_credentials": True}},
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-         allow_headers=["Content-Type", "Authorization", "Accept"])
-
-    # Replace secret key
-    app.secret_key = config.get_secret_key()
-
-    # Replace database configuration
-    app.config["SQLALCHEMY_DATABASE_URI"] = config.get_db_url()
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = config.get_db_engine_options()
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-    # Setup logging - Should come early in initialization
-    setup_logging(app)
-
-    # Initialize extensions
-    from .db import db
-    db.init_app(app)
-
     # Initialize rate limiter with the best available storage
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
 
-    # Try to use Redis storage if available
     # Try to use Redis storage if available
     redis_storage = None
     try:
@@ -180,11 +177,6 @@ def create_app():
 
     # Register error handlers - using the function defined above
     register_error_handlers(app)
-
-    # Create database tables (do this before registering blueprints)
-    with app.app_context():
-        db.create_all()
-        app.logger.info("Database tables created")
 
     # Register API blueprints - Import directly to avoid circular imports
     from .routes.auth import auth_bp
