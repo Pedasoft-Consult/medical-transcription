@@ -6,6 +6,10 @@ import os
 import yaml
 from typing import Dict, Any, Optional
 
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 class Config:
     """
@@ -84,27 +88,14 @@ class Config:
         try:
             raw_url = self.config['database'][self.env]['url']
 
-            # Handle postgres URLs
+            # For PostgreSQL URLs, convert for SQLAlchemy
             if raw_url.startswith("postgres://"):
-                # Convert postgres:// to postgresql:// for SQLAlchemy
-                base_url = raw_url.replace("postgres://", "postgresql://", 1)
-
-                # Remove any Supabase-specific parameters and sslmode
-                if "?" in base_url:
-                    url_part, params_part = base_url.split("?", 1)
-                    params = []
-                    for param in params_part.split("&"):
-                        # Skip sslmode and supa parameters
-                        if not param.startswith("sslmode=") and not param.startswith("supa="):
-                            params.append(param)
-
-                    # Rebuild URL
-                    if params:
-                        base_url = f"{url_part}?{'&'.join(params)}"
-                    else:
-                        base_url = url_part
-
-                return base_url
+                # Remove SSL parameters that might cause issues
+                main_url = raw_url.replace("postgres://", "postgresql://", 1)
+                if "?" in main_url:
+                    url_part, _ = main_url.split("?", 1)
+                    return url_part
+                return main_url
             return raw_url
         except (KeyError, TypeError):
             return "sqlite:///app.db"  # Default fallback
