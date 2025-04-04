@@ -19,3 +19,7 @@ python api/run.py
 
 # Then deploy to Vercel when you're ready
 vercel --prod
+
+
+docker build -t medical-transcription-app .
+docker run -p 2000:2000 medical-transcription-app

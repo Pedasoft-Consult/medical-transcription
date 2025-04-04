@@ -25,15 +25,23 @@ def get_redis_client(redis_url=None):
             logger.warning("No REDIS_URL found in environment")
             return None
 
-    logger.info(f"Connecting to Redis at {redis_url[:redis_url.find('@') + 1]}***")
+    # Hide password in logs
+    safe_url = redis_url
+    if '@' in redis_url:
+        parts = redis_url.split('@')
+        safe_url = f"redis://*****@{parts[1]}" if len(parts) > 1 else redis_url
+
+    logger.info(f"Connecting to Redis at {safe_url}")
 
     try:
-        # Create Redis client using from_url
+        # Create Redis client using from_url with retry settings
         client = redis.from_url(
             url=redis_url,
             socket_timeout=5,  # 5 second timeout
             socket_connect_timeout=5,
-            retry_on_timeout=True
+            retry_on_timeout=True,
+            decode_responses=False,  # Important - keep binary for limiter
+            max_connections=10
         )
 
         # Test connection
@@ -47,6 +55,25 @@ def get_redis_client(redis_url=None):
     except Exception as e:
         logger.error(f"Unexpected error connecting to Redis: {str(e)}")
         return None
+
+
+def create_redis_connection_string(host, port=6379, password=None, db=0, ssl=False):
+    """
+    Create a Redis connection string from components
+
+    Args:
+        host: Redis host
+        port: Redis port
+        password: Redis password (optional)
+        db: Redis database number
+        ssl: Whether to use SSL
+
+    Returns:
+        str: Redis connection string
+    """
+    scheme = "rediss" if ssl else "redis"
+    auth = f":{password}@" if password else ""
+    return f"{scheme}://{auth}{host}:{port}/{db}"
 
 
 def test_redis_connection():

@@ -2,6 +2,7 @@
 import os
 import sys
 import logging
+import ssl
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables from .env
 load_dotenv()
+
 
 # Support DATABASE_URL or broken-out env vars
 def get_pg_config():
@@ -42,15 +44,20 @@ def connect_postgres():
         import pg8000
         config = get_pg_config()
 
-        # Convert config format for pg8000
-        # Note: pg8000 doesn't use sslmode parameter, it uses ssl_context instead
+        # Create SSL context for secure connections
+        ssl_context = ssl.create_default_context()
+        # Don't verify server certificate
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
+        # Connect with pg8000 using ssl_context instead of ssl=True
         conn = pg8000.connect(
             user=config['user'],
             password=config['password'],
             host=config['host'],
             port=int(config['port']),
             database=config['database'],
-            ssl=True  # Use ssl=True instead of ssl_context
+            ssl_context=ssl_context  # Use proper SSL context
         )
 
         print(f"✅ Connected to PostgreSQL database: {config['database']}")
@@ -60,7 +67,24 @@ def connect_postgres():
         sys.exit(1)
     except Exception as e:
         print(f"❌ PostgreSQL connection error: {e}")
-        sys.exit(1)
+
+        # Try a fallback approach with simple ssl=True
+        try:
+            print("Trying fallback connection method...")
+            conn = pg8000.connect(
+                user=config['user'],
+                password=config['password'],
+                host=config['host'],
+                port=int(config['port']),
+                database=config['database'],
+                ssl=True  # Fallback to simple bool
+            )
+            print(f"✅ Connected to PostgreSQL database (fallback): {config['database']}")
+            return conn
+        except Exception as e2:
+            print(f"❌ Fallback connection also failed: {e2}")
+            sys.exit(1)
+
 
 def create_tables(conn):
     """Create tables in PostgreSQL"""
@@ -131,6 +155,7 @@ def create_tables(conn):
     conn.commit()
     print("✅ Tables created successfully!")
 
+
 def main():
     try:
         pg_conn = connect_postgres()
@@ -140,6 +165,7 @@ def main():
         logger.error(f"Failed to create database tables: {e}")
         print(f"❌ Error creating tables: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

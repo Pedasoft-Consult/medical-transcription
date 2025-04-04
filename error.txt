@@ -1,0 +1,50 @@
+INFO:api:Swagger documentation registered
+ * Serving Flask app 'api'
+ * Debug mode: on
+INFO:werkzeug:WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:2000
+ * Running on http://192.168.8.109:2000
+INFO:werkzeug:Press CTRL+C to quit
+INFO:werkzeug: * Restarting with stat
+SQLAlchemy mappers cleared
+INFO:api.db:Clearing SQLAlchemy mappers
+INFO:api.db:SQLAlchemy mappers cleared
+INFO:api:Loading environment from default .env file
+INFO:api.config:Original DATABASE_URL: postgres://postgres.hustgwbmwvmpptezmklt:9R5h7CthPEzyS7M5@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x
+INFO:api.config:Cleaned DATABASE_URL: postgres://postgres.hustgwbmwvmpptezmklt:9R5h7CthPEzyS7M5@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require
+INFO:api.config:Original DATABASE_URL: postgres://postgres.hustgwbmwvmpptezmklt:9R5h7CthPEzyS7M5@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x
+INFO:api.config:Cleaned DATABASE_URL: postgres://postgres.hustgwbmwvmpptezmklt:9R5h7CthPEzyS7M5@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require
+INFO:api:Database URL: postgresql+pg8000://postgres.hustgwbmwvmpptezmklt:9R5h7CthPEzyS7M5@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+2025-04-04 06:46:56,989 INFO: Medical Transcription App starting up - Logging to /tmp/app.log [in C:\ddp\medical-transcription\api\logging_setup.py:75]
+INFO:api:Medical Transcription App starting up - Logging to /tmp/app.log
+2025-04-04 06:46:57,160 INFO: Connecting to Redis at redis://default:q2mV6aQErDWS6vvLgJA1lSniSDU0RD9w@*** [in C:\ddp\medical-transcription\api\utils\redis_fix.py:28]
+INFO:api.utils.redis_fix:Connecting to Redis at redis://default:q2mV6aQErDWS6vvLgJA1lSniSDU0RD9w@***
+2025-04-04 06:46:58,289 INFO: Redis connection successful [in C:\ddp\medical-transcription\api\utils\redis_fix.py:41]
+INFO:api.utils.redis_fix:Redis connection successful
+2025-04-04 06:46:58,292 WARNING: Could not initialize Redis storage for rate limiting: 'Redis' object has no attribute 'replace' [in C:\ddp\medical-transcription\api\__init__.py:111]
+WARNING:api:Could not initialize Redis storage for rate limiting: 'Redis' object has no attribute 'replace'
+2025-04-04 06:46:58,292 WARNING: Falling back to in-memory storage (not recommended for production) [in C:\ddp\medical-transcription\api\__init__.py:112]
+WARNING:api:Falling back to in-memory storage (not recommended for production)
+C:\Users\HP\AppData\Local\Programs\Python\Python39\lib\site-packages\flask_limiter\extension.py:330: UserWarning: Using the in-memory storage for tracking rate limits as no storage was explicitly specified. This is not recommended for production use. See: https://flask-limiter.readthedocs.io#configuring-a-storage-backend for documentation about configuring the storage backend.
+  warnings.warn(
+2025-04-04 06:46:58,295 WARNING: Using in-memory storage for rate limiting. NOT RECOMMENDED FOR PRODUCTION. [in C:\ddp\medical-transcription\api\__init__.py:130]
+WARNING:api:Using in-memory storage for rate limiting. NOT RECOMMENDED FOR PRODUCTION.
+2025-04-04 06:46:58,306 ERROR: Failed to register auth routes: DLL load failed while importing _bcrypt: The specified procedure could not be found. [in C:\ddp\medical-transcription\api\__init__.py:145]
+ERROR:api:Failed to register auth routes: DLL load failed while importing _bcrypt: The specified procedure could not be found.
+2025-04-04 06:46:58,335 INFO: Registered transcription routes [in C:\ddp\medical-transcription\api\__init__.py:151]
+INFO:api:Registered transcription routes
+2025-04-04 06:46:58,342 INFO: Registered translation routes [in C:\ddp\medical-transcription\api\__init__.py:159]
+INFO:api:Registered translation routes
+2025-04-04 06:46:58,344 INFO: Registered audio routes [in C:\ddp\medical-transcription\api\__init__.py:167]
+INFO:api:Registered audio routes
+2025-04-04 06:46:58,345 ERROR: Error creating database tables: connect() got an unexpected keyword argument 'ssl' [in C:\ddp\medical-transcription\api\__init__.py:178]
+ERROR:api:Error creating database tables: connect() got an unexpected keyword argument 'ssl'
+2025-04-04 06:46:58,347 INFO: Monitoring routes registered [in C:\ddp\medical-transcription\api\__init__.py:184]
+INFO:api:Monitoring routes registered
+2025-04-04 06:46:58,352 INFO: Data retention commands registered [in C:\ddp\medical-transcription\api\__init__.py:192]
+INFO:api:Data retention commands registered
+2025-04-04 06:46:58,356 INFO: Swagger documentation registered [in C:\ddp\medical-transcription\api\__init__.py:199]
+INFO:api:Swagger documentation registered
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 100-558-040

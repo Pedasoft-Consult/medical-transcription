@@ -4,6 +4,7 @@ Reset and initialize SQLAlchemy models
 import os
 import sys
 import logging
+import ssl
 from dotenv import load_dotenv
 
 # Configure logging
@@ -50,9 +51,14 @@ def reset_sqlalchemy_models():
         app.config["SQLALCHEMY_DATABASE_URI"] = db_url
         app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+        # Create SSL context for database connection
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
         # Add SSL connect_args for pg8000
         app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-            "connect_args": {"ssl": True},
+            "connect_args": {"ssl_context": ssl_context},
             "pool_pre_ping": True
         }
 
@@ -64,35 +70,73 @@ def reset_sqlalchemy_models():
         # 3. Initialize models within app context
         with app.app_context():
             # Import models - order matters here
-            from api.models.user import User
-            from api.models.transcript import Transcription
-            from api.models.translation import Translation
-            from api.models.audit_log import AuditLog
+            try:
+                from api.models.user import User
+                logger.info("✓ User model imported")
+            except Exception as e:
+                logger.error(f"❌ Failed to import User model: {str(e)}")
+
+            try:
+                from api.models.transcript import Transcription
+                logger.info("✓ Transcription model imported")
+            except Exception as e:
+                logger.error(f"❌ Failed to import Transcription model: {str(e)}")
+
+            try:
+                from api.models.translation import Translation
+                logger.info("✓ Translation model imported")
+            except Exception as e:
+                logger.error(f"❌ Failed to import Translation model: {str(e)}")
+
+            try:
+                from api.models.audit_log import AuditLog
+                logger.info("✓ AuditLog model imported")
+            except Exception as e:
+                logger.error(f"❌ Failed to import AuditLog model: {str(e)}")
 
             # Create tables
-            db.create_all()
+            try:
+                db.create_all()
+                logger.info("✓ Tables created successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to create tables: {str(e)}")
+                # Try to provide more specific error info
+                try:
+                    from sqlalchemy import text
+                    db.session.execute(text("SELECT 1"))
+                    logger.info("  - Basic database connection is working")
+                except Exception as db_e:
+                    logger.error(f"  - Database connection test failed: {str(db_e)}")
 
             # Check if tables were created properly
-            tables = db.engine.table_names()
-            expected_tables = ['users', 'transcriptions', 'translations', 'audit_logs']
+            try:
+                tables = db.engine.table_names()
+                expected_tables = ['users', 'transcriptions', 'translations', 'audit_logs']
 
-            missing_tables = [table for table in expected_tables if table not in tables]
-            if missing_tables:
-                logger.error(f"❌ Missing tables: {', '.join(missing_tables)}")
-            else:
-                logger.info(f"✓ All tables exist: {', '.join(tables)}")
+                missing_tables = [table for table in expected_tables if table not in tables]
+                if missing_tables:
+                    logger.error(f"❌ Missing tables: {', '.join(missing_tables)}")
+                else:
+                    logger.info(f"✓ All expected tables exist: {', '.join(tables)}")
 
-            # Count rows in each table
-            user_count = User.query.count()
-            transcription_count = Transcription.query.count()
-            translation_count = Translation.query.count()
-            audit_log_count = AuditLog.query.count()
+                # Try to count rows in each table
+                from api.models.user import User
+                from api.models.transcript import Transcription
+                from api.models.translation import Translation
+                from api.models.audit_log import AuditLog
 
-            logger.info(f"✓ Database table counts:")
-            logger.info(f"  - Users: {user_count}")
-            logger.info(f"  - Transcriptions: {transcription_count}")
-            logger.info(f"  - Translations: {translation_count}")
-            logger.info(f"  - Audit Logs: {audit_log_count}")
+                user_count = User.query.count()
+                transcription_count = Transcription.query.count()
+                translation_count = Translation.query.count()
+                audit_log_count = AuditLog.query.count()
+
+                logger.info(f"✓ Database table counts:")
+                logger.info(f"  - Users: {user_count}")
+                logger.info(f"  - Transcriptions: {transcription_count}")
+                logger.info(f"  - Translations: {translation_count}")
+                logger.info(f"  - Audit Logs: {audit_log_count}")
+            except Exception as e:
+                logger.error(f"❌ Error checking tables: {str(e)}")
 
         logger.info("✓ SQLAlchemy models reset and initialized successfully")
         return True
@@ -101,8 +145,3 @@ def reset_sqlalchemy_models():
         import traceback
         traceback.print_exc()
         return False
-
-
-if __name__ == "__main__":
-    success = reset_sqlalchemy_models()
-    sys.exit(0 if success else 1)

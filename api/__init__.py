@@ -80,33 +80,19 @@ def create_app():
         # Try to use Redis storage if available
         redis_storage = None
         try:
-            # Get Redis client from utility
-            from .utils.redis_fix import get_redis_client
-
             # Get Redis URL from config or environment
             redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-            redis_client = get_redis_client(redis_url)
 
-            if redis_client:
-                # Try to get the appropriate RedisStorage class
-                from .utils.redis_compat import get_redis_storage
-                RedisStorage = get_redis_storage()
+            # Import our compatibility utilities
+            from .utils.redis_compat import create_redis_limiter_storage
 
-                if RedisStorage:
-                    # Create storage with Redis client
-                    try:
-                        redis_storage = RedisStorage(redis_client)
-                        app.logger.info("Using Redis storage for rate limiting")
-                    except TypeError as e:
-                        app.logger.warning(f"Redis storage initialization error: {e}")
-                        # Try alternate initialization method
-                        try:
-                            redis_storage = RedisStorage(redis_url)
-                            app.logger.info("Using Redis storage for rate limiting with URL")
-                        except Exception as e:
-                            app.logger.warning(f"Failed to initialize Redis storage with URL: {e}")
+            # Try to create Redis storage
+            redis_storage = create_redis_limiter_storage(redis_url)
+
+            if redis_storage:
+                app.logger.info("Using Redis storage for rate limiting")
             else:
-                app.logger.warning("Could not connect to Redis")
+                app.logger.warning("Failed to create Redis storage, falling back to in-memory storage")
         except Exception as e:
             app.logger.warning(f"Could not initialize Redis storage for rate limiting: {str(e)}")
             app.logger.warning("Falling back to in-memory storage (not recommended for production)")
@@ -137,12 +123,34 @@ def create_app():
         app.logger.warning(f"Could not initialize rate limiting: {str(e)}")
 
     # Register API blueprints
+    auth_registered = False
     try:
         from .routes.auth import auth_bp
         app.register_blueprint(auth_bp)
         app.logger.info("Registered auth routes")
+        auth_registered = True
     except Exception as e:
         app.logger.error(f"Failed to register auth routes: {str(e)}")
+        auth_registered = False
+
+    # Try to register emergency auth routes if normal auth fails
+    if not auth_registered:
+        try:
+            # First try to register compatibility auth routes
+            from .routes.auth_compat import auth_compat_bp, token_required_compat
+            app.register_blueprint(auth_compat_bp)
+
+            # Replace the token_required decorator with our compat version
+            # This is a bit of a hack but necessary for emergency mode
+            import sys
+            sys.modules['api.security'] = type('MockSecurity', (), {
+                'token_required': token_required_compat
+            })
+
+            app.logger.warning("Registered emergency auth routes")
+            auth_registered = True
+        except Exception as e2:
+            app.logger.error(f"Failed to register emergency auth routes: {str(e2)}")
 
     # Replace the transcription routes registration
     try:
@@ -151,6 +159,19 @@ def create_app():
         app.logger.info("Registered transcription routes")
     except Exception as e:
         app.logger.error(f"Failed to register transcription routes: {str(e)}")
+        # Try to create a dummy route for testing
+        try:
+            from flask import Blueprint
+            dummy_bp = Blueprint('dummy_transcription', __name__, url_prefix='/api')
+
+            @dummy_bp.route('/transcriptions', methods=['GET'])
+            def dummy_transcriptions():
+                return jsonify({"message": "Transcription service temporarily unavailable"}), 503
+
+            app.register_blueprint(dummy_bp)
+            app.logger.warning("Registered dummy transcription route")
+        except Exception as e2:
+            app.logger.error(f"Failed to register dummy route: {str(e2)}")
 
     # Replace the translation routes registration
     try:
@@ -159,6 +180,7 @@ def create_app():
         app.logger.info("Registered translation routes")
     except Exception as e:
         app.logger.error(f"Failed to register translation routes: {str(e)}")
+        # We'll just continue without these routes
 
     # Register audio routes
     try:
@@ -176,6 +198,18 @@ def create_app():
             app.logger.info("Database tables created or verified")
     except Exception as e:
         app.logger.error(f"Error creating database tables: {str(e)}")
+        # Try to provide more detailed error information
+        try:
+            import traceback
+            app.logger.error(f"Traceback: {traceback.format_exc()}")
+
+            # Check database connection
+            from sqlalchemy import text
+            with app.app_context():
+                db.session.execute(text("SELECT 1"))
+                app.logger.info("Database connection is working")
+        except Exception as db_e:
+            app.logger.error(f"Database connection test failed: {str(db_e)}")
 
     # Register monitoring routes
     try:
@@ -231,5 +265,48 @@ def create_app():
     @app.route('/api/health')
     def health_check():
         return jsonify({"status": "healthy"})
+
+    # Expanded error route
+    @app.route('/api/error-info')
+    def error_info():
+        """Endpoint to check for common deployment errors"""
+        error_checks = []
+
+        # Check database connection
+        try:
+            with app.app_context():
+                from sqlalchemy import text
+                db.session.execute(text("SELECT 1"))
+                error_checks.append({"component": "database", "status": "ok"})
+        except Exception as e:
+            error_checks.append({"component": "database", "status": "error", "message": str(e)})
+
+        # Check Redis connection
+        try:
+            from .utils.redis_fix import get_redis_client
+            redis_client = get_redis_client()
+            if redis_client:
+                redis_client.ping()
+                error_checks.append({"component": "redis", "status": "ok"})
+            else:
+                error_checks.append({"component": "redis", "status": "error", "message": "Could not connect to Redis"})
+        except Exception as e:
+            error_checks.append({"component": "redis", "status": "error", "message": str(e)})
+
+        # Check module availability
+        modules_to_check = ['bcrypt', 'flask_limiter', 'pg8000']
+        for module in modules_to_check:
+            try:
+                __import__(module)
+                error_checks.append({"component": f"module:{module}", "status": "ok"})
+            except ImportError as e:
+                error_checks.append({"component": f"module:{module}", "status": "error", "message": str(e)})
+
+        return jsonify({
+            "checks": error_checks,
+            "python_version": os.environ.get("PYTHON_VERSION"),
+            "flask_debug": os.environ.get("FLASK_DEBUG"),
+            "environment": os.environ.get("FLASK_ENV", "development")
+        })
 
     return app

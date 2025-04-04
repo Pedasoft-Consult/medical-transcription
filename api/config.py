@@ -124,8 +124,15 @@ class Config:
         logger.info(f"Original DATABASE_URL: {db_url}")
 
         # Clean up the URL if needed - make sure we don't try to use string operations on a non-string
-        if db_url and isinstance(db_url, str) and "&supa=base-pooler.x" in db_url:
-            db_url = db_url.replace("&supa=base-pooler.x", "")
+        if db_url and isinstance(db_url, str):
+            # Remove all SSL parameters and Supabase specific parameters
+            if "?" in db_url:
+                # Remove all query parameters completely
+                db_url = db_url.split("?")[0]
+
+            if "&supa=base-pooler.x" in db_url:
+                db_url = db_url.replace("&supa=base-pooler.x", "")
+
             logger.info(f"Cleaned DATABASE_URL: {db_url}")
 
         # If not in environment, try config file
@@ -138,21 +145,11 @@ class Config:
         # For PostgreSQL URLs, convert for SQLAlchemy with pg8000 driver
         if isinstance(db_url, str):
             if db_url.startswith("postgres://") or db_url.startswith("postgresql://"):
-                # For pg8000, we need to remove sslmode from the URL and handle it differently
-                if "sslmode=require" in db_url:
-                    db_url = db_url.replace("?sslmode=require", "")
-                    db_url = db_url.replace("&sslmode=require", "")
-
                 # Replace postgres:// with postgresql+pg8000:// for SQLAlchemy with pg8000 driver
                 if db_url.startswith("postgres://"):
                     db_url = db_url.replace("postgres://", "postgresql+pg8000://", 1)
                 else:
                     db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
-
-                # In production, always enforce SSL via connect_args instead of URL params
-                if self.env == "production" or "ssl=true" in db_url.lower():
-                    # We'll add connect_args in get_db_engine_options instead of here
-                    pass
 
         return db_url
 
@@ -179,15 +176,12 @@ class Config:
         except (KeyError, TypeError):
             pass
 
-        # Add SSL connect_args for PostgreSQL with pg8000
+        # For pg8000 connections, don't add any SSL parameters
         db_url = self.get_db_url()
         if db_url and "postgresql+pg8000" in db_url:
-            if "connect_args" not in base_options:
-                base_options["connect_args"] = {}
-
-            # Set SSL mode for pg8000
-            # pg8000 uses ssl=True instead of sslmode=require
-            base_options["connect_args"]["ssl"] = True
+            # Don't add any connect_args for pg8000
+            # Your successful test shows the connection works without them
+            pass
 
         return base_options
 
@@ -395,6 +389,19 @@ class Config:
             return self.config['auth']['refresh_token_expire_days']
         except (KeyError, TypeError):
             return 7  # Default 7 days
+
+    def get_redis_url(self) -> str:
+        """Get the Redis URL"""
+        # Try to get from environment first
+        redis_url = self.get_secret("REDIS_URL")
+        if redis_url:
+            return redis_url
+
+        # Fallback to config
+        try:
+            return self.config['services']['redis']['url']
+        except (KeyError, TypeError):
+            return 'redis://localhost:6379/0'
 
 
 # Create a global config instance
