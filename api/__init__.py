@@ -7,6 +7,7 @@ import logging
 from flask import Flask, jsonify
 from dotenv import load_dotenv
 
+from .db import db, reset_sqlalchemy
 from .swagger import register_swagger
 from .config import config
 from .logging_setup import setup_logging
@@ -34,6 +35,9 @@ def load_environment_config():
 
 def create_app():
     """Create and configure the Flask application with enhanced security"""
+    # Reset SQLAlchemy to clear any previous mappers
+    reset_sqlalchemy()
+
     # Load environment variables
     load_environment_config()
 
@@ -57,7 +61,6 @@ def create_app():
     setup_logging(app)
 
     # Initialize database
-    from .db import db
     db.init_app(app)
 
     # Setup CORS with proper configuration
@@ -69,8 +72,6 @@ def create_app():
     # Register error handlers
     register_error_handlers(app)
 
-    # Updated Redis initialization code for api/__init__.py
-
     # Initialize rate limiter
     try:
         from flask_limiter import Limiter
@@ -79,38 +80,34 @@ def create_app():
         # Try to use Redis storage if available
         redis_storage = None
         try:
-            import redis
-            # Try to get the appropriate RedisStorage class
-            from .utils.redis_compat import get_redis_storage
-            RedisStorage = get_redis_storage()
-
-            if not RedisStorage:
-                raise ImportError("RedisStorage class could not be loaded")
+            # Get Redis client from utility
+            from .utils.redis_fix import get_redis_client
 
             # Get Redis URL from config or environment
             redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+            redis_client = get_redis_client(redis_url)
 
-            # Create Redis client directly without string manipulation
-            redis_client = redis.from_url(redis_url)
+            if redis_client:
+                # Try to get the appropriate RedisStorage class
+                from .utils.redis_compat import get_redis_storage
+                RedisStorage = get_redis_storage()
 
-            # Test connection
-            redis_client.ping()
-
-            # Create storage with appropriate parameters for the version
-            try:
-                # Try new API (likely for newer versions)
-                redis_storage = RedisStorage(redis_client)
-                app.logger.info("Using Redis storage for rate limiting with newer API")
-            except TypeError:
-                # Try old API (for older versions)
-                try:
-                    redis_storage = RedisStorage(redis_url)
-                    app.logger.info("Using Redis storage for rate limiting with older API")
-                except:
-                    app.logger.warning("Could not initialize Redis storage with either API")
-                    redis_storage = None
-
-        except (ImportError, Exception) as e:
+                if RedisStorage:
+                    # Create storage with Redis client
+                    try:
+                        redis_storage = RedisStorage(redis_client)
+                        app.logger.info("Using Redis storage for rate limiting")
+                    except TypeError as e:
+                        app.logger.warning(f"Redis storage initialization error: {e}")
+                        # Try alternate initialization method
+                        try:
+                            redis_storage = RedisStorage(redis_url)
+                            app.logger.info("Using Redis storage for rate limiting with URL")
+                        except Exception as e:
+                            app.logger.warning(f"Failed to initialize Redis storage with URL: {e}")
+            else:
+                app.logger.warning("Could not connect to Redis")
+        except Exception as e:
             app.logger.warning(f"Could not initialize Redis storage for rate limiting: {str(e)}")
             app.logger.warning("Falling back to in-memory storage (not recommended for production)")
             redis_storage = None
@@ -140,8 +137,6 @@ def create_app():
         app.logger.warning(f"Could not initialize rate limiting: {str(e)}")
 
     # Register API blueprints
-    # Replace the auth routes registration section in api/__init__.py
-    # Register API blueprints
     try:
         from .routes.auth import auth_bp
         app.register_blueprint(auth_bp)
@@ -151,8 +146,6 @@ def create_app():
 
     # Replace the transcription routes registration
     try:
-        # Make sure models are properly imported first
-        from .models.transcript import Transcription
         from .routes.ai_transcription import ai_transcription_bp
         app.register_blueprint(ai_transcription_bp)
         app.logger.info("Registered transcription routes")
@@ -161,8 +154,6 @@ def create_app():
 
     # Replace the translation routes registration
     try:
-        # Make sure models are properly imported first
-        from .models.translation import Translation
         from .routes.ai_translation import ai_translation_bp
         app.register_blueprint(ai_translation_bp)
         app.logger.info("Registered translation routes")
@@ -180,12 +171,6 @@ def create_app():
     # Create database tables if they don't exist
     try:
         with app.app_context():
-            # First import all models to ensure they are registered
-            from .models.user import User
-            from .models.transcript import Transcription
-            from .models.translation import Translation
-            from .models.audit_log import AuditLog
-
             # Create tables
             db.create_all()
             app.logger.info("Database tables created or verified")

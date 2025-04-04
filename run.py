@@ -2,19 +2,23 @@
 Run script for Medical Transcription App
 """
 import os
+import logging
 
-# Clear SQLAlchemy mappers before initializing app
+# Try to clear SQLAlchemy mappers before loading any models
 try:
     from sqlalchemy.orm import clear_mappers
     clear_mappers()
+    print("SQLAlchemy mappers cleared")
 except ImportError:
+    print("Could not import clear_mappers from sqlalchemy.orm")
     pass
 
+# Create the Flask application
 from flask import jsonify
 from api import create_app
 from api.config import config
 
-# Create the Flask application
+# Create the application
 app = create_app()
 
 @app.route("/api/", methods=["GET"])

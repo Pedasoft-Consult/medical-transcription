@@ -3,12 +3,16 @@ Updated configuration loader to use pg8000 dialect by default for Vercel compati
 """
 import os
 import yaml
+import logging
 from typing import Dict, Any, Optional
 
 from dotenv import load_dotenv
 
 # Load environment variables from .env
 load_dotenv()
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 
 class Config:
@@ -117,13 +121,12 @@ class Config:
         db_url = self.get_secret("DATABASE_URL")
 
         # Log the original URL for debugging
-        import logging
-        logging.getLogger(__name__).info(f"Original DATABASE_URL: {db_url}")
+        logger.info(f"Original DATABASE_URL: {db_url}")
 
         # Clean up the URL if needed - make sure we don't try to use string operations on a non-string
         if db_url and isinstance(db_url, str) and "&supa=base-pooler.x" in db_url:
             db_url = db_url.replace("&supa=base-pooler.x", "")
-            logging.getLogger(__name__).info(f"Cleaned DATABASE_URL: {db_url}")
+            logger.info(f"Cleaned DATABASE_URL: {db_url}")
 
         # If not in environment, try config file
         if not db_url:
@@ -135,15 +138,21 @@ class Config:
         # For PostgreSQL URLs, convert for SQLAlchemy with pg8000 driver
         if isinstance(db_url, str):
             if db_url.startswith("postgres://") or db_url.startswith("postgresql://"):
+                # For pg8000, we need to remove sslmode from the URL and handle it differently
+                if "sslmode=require" in db_url:
+                    db_url = db_url.replace("?sslmode=require", "")
+                    db_url = db_url.replace("&sslmode=require", "")
+
                 # Replace postgres:// with postgresql+pg8000:// for SQLAlchemy with pg8000 driver
                 if db_url.startswith("postgres://"):
                     db_url = db_url.replace("postgres://", "postgresql+pg8000://", 1)
                 else:
                     db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
 
-                # In production, always enforce SSL
-                if self.env == "production" and "sslmode" not in db_url:
-                    return f"{db_url}?sslmode=require"
+                # In production, always enforce SSL via connect_args instead of URL params
+                if self.env == "production" or "ssl=true" in db_url.lower():
+                    # We'll add connect_args in get_db_engine_options instead of here
+                    pass
 
         return db_url
 
@@ -169,6 +178,16 @@ class Config:
             base_options.update(config_options)
         except (KeyError, TypeError):
             pass
+
+        # Add SSL connect_args for PostgreSQL with pg8000
+        db_url = self.get_db_url()
+        if db_url and "postgresql+pg8000" in db_url:
+            if "connect_args" not in base_options:
+                base_options["connect_args"] = {}
+
+            # Set SSL mode for pg8000
+            # pg8000 uses ssl=True instead of sslmode=require
+            base_options["connect_args"]["ssl"] = True
 
         return base_options
 

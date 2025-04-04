@@ -1,17 +1,20 @@
 """
 Database connection setup
 """
+import logging
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import declarative_base, clear_mappers
 
-class Base(DeclarativeBase):
-    pass
+logger = logging.getLogger(__name__)
 
-# Initialize SQLAlchemy with the base model class
-db = SQLAlchemy(model_class=Base)
+# Initialize SQLAlchemy without a model class
+db = SQLAlchemy()
 
-# Clear any previously registered models to avoid conflicts
-def clear_mappers():
-    """Clear all registered mappers to avoid conflicts"""
-    import sqlalchemy.orm
-    sqlalchemy.orm.clear_mappers()
+def reset_sqlalchemy():
+    """Reset SQLAlchemy mappers to avoid conflicts during reinitialization"""
+    try:
+        logger.info("Clearing SQLAlchemy mappers")
+        clear_mappers()
+        logger.info("SQLAlchemy mappers cleared")
+    except Exception as e:
+        logger.error(f"Error clearing SQLAlchemy mappers: {e}")

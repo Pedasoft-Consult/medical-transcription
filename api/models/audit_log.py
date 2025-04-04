@@ -13,6 +13,9 @@ class AuditLog(db.Model):
     """Model for tracking PHI access for HIPAA compliance"""
     __tablename__ = 'audit_logs'
 
+    # Add extend_existing=True to prevent table redefinition errors
+    __table_args__ = {'extend_existing': True}
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     resource_type = db.Column(db.String(50), nullable=False)
