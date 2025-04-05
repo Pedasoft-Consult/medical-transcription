@@ -113,14 +113,14 @@ def setup_cors(app):
     # Define allowed origins based on environment
     if app.config.get('ENV') == 'production':
         origins = [
-            "https://yourdomain.com",
-            "https://api.yourdomain.com"
+            "https://medical-transcription-75mt.vercel.app/",
+            "https://medical-transcription-75mt.vercel.app/"
         ]
     else:
         # Development origins
         origins = [
-            "http://localhost:3000",
-            "http://127.0.0.1:3000"
+            "https://medical-transcription-75mt.vercel.app/",
+            "https://medical-transcription-75mt.vercel.app/"
         ]
 
     CORS(app,

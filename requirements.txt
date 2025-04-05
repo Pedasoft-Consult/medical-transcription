@@ -29,15 +29,16 @@ gTTS==2.4.0
 uvicorn==0.23.2
 Werkzeug==2.2.3
 gunicorn==23.0.0
-
+firebase-admin
+git-filter-repo==2.47.0
 # Authentication
 PyJWT==2.8.0
-bcrypt==4.0.1
+bcrypt==4.3.0
 email_validator==2.0.0
 
 # Storage backends for rate limiting
-redis==4.6.0
-limits==3.6.0
+redis==4.3.4
+limits==2.8.0
 
 # Utilities
 requests==2.31.0
